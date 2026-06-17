@@ -5,6 +5,11 @@ use zerocopy::{Immutable, IntoBytes};
 
 const HEX: [u8; 16] = *b"0123456789ABCDEF";
 
+/// Prints a hexadecimal dump of the given data.
+///
+/// This function formats the input data as a standard hexdump, showing
+/// the offset, the hexadecimal values (up to 16 bytes per line), and
+/// the ASCII representation of the bytes (or '.' for non-printable characters).
 pub fn hexdump<T>(data: &T)
 where
     T: IntoBytes + Immutable + ?Sized,
