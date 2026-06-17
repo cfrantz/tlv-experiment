@@ -7,10 +7,15 @@ edition = "2024"
 name = "test_serde"
 path = "src/test_serde.rs"
 
+[[bin]]
+name = "imgdsc"
+path = "src/imgdsc.rs"
+
 [dependencies]
 paste = "1.0.15"
 serde = { version = "1.0.228", features = ["derive"], optional = true }
 serde_json = "1.0.150"
+serde_json5 = "0.2.1"
 typetag = "0.2.22"
 zerocopy = { version = "0.8.52", features = ["derive"] }
 

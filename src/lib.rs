@@ -215,7 +215,6 @@ impl<'a, T: TlvObject> TlvQuery for TlvItem<'a, T> {
         }
     }
     fn ext(&self) -> Self::Extension {
-        eprintln!("making ext for {}", std::any::type_name::<T>());
         if core::mem::size_of::<T>() == 0 {
             const EMPTY: [u32; 0] = [0u32; 0];
             return T::make_ext(EMPTY.as_bytes());
