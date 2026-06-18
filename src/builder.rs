@@ -39,7 +39,7 @@ impl<'a> TlvBuilder<'a> {
     }
 
     pub fn add<T: TlvObject>(&mut self) -> Result<&mut T, TlvError> {
-        let remaining = std::mem::take(&mut self.remaining);
+        let remaining = core::mem::take(&mut self.remaining);
         let (header_words, remaining) = remaining
             .split_first_chunk_mut::<{ TlvHeader::HEADER_WORD_COUNT }>()
             .ok_or(TlvError)?;
@@ -69,7 +69,7 @@ impl<'a> TlvBuilder<'a> {
     pub fn add_with_children<T: TlvObject>(
         &mut self,
     ) -> Result<(&'a mut T, TlvBuilder<'a>), TlvError> {
-        let remaining = std::mem::take(&mut self.remaining);
+        let remaining = core::mem::take(&mut self.remaining);
         Self::new::<T>(remaining)
     }
 

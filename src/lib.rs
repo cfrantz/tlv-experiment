@@ -50,10 +50,14 @@
 //! }
 //! ```
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, transmute_ref};
 
 mod builder;
+#[cfg(feature = "std")]
 mod hexdump;
+#[cfg(feature = "std")]
 pub use hexdump::hexdump;
 
 pub use builder::TlvBuilder;
@@ -136,7 +140,7 @@ impl TlvData {
     pub fn iter<'a, T: TlvObject>(&'a self) -> TlvIterator<'a, T> {
         TlvIterator {
             data: &self.data,
-            target: std::marker::PhantomData,
+            target: core::marker::PhantomData,
         }
     }
 }
@@ -144,7 +148,7 @@ impl TlvData {
 /// Iterator over TLV objects in a [`TlvData`] container.
 pub struct TlvIterator<'a, T> {
     data: &'a [u32],
-    target: std::marker::PhantomData<T>,
+    target: core::marker::PhantomData<T>,
 }
 
 /// Item returned by [`TlvIterator`].
@@ -364,6 +368,7 @@ macro_rules! tlv_struct {
                 pub ext: Vec<u8>,
             }
 
+            #[cfg(feature="serde")]
             const _:() = {
                 use zerocopy::{IntoBytes};
                 use $crate::TlvObject;
@@ -375,11 +380,11 @@ macro_rules! tlv_struct {
                     // prepended by the appropriate TlvHeader.
                     fn pack(&self) -> Vec<u8> {
                         let data_len =
-                            std::mem::size_of_val(&self.data) +
+                            core::mem::size_of_val(&self.data) +
                             self.ext.len();
                         let padded_data_len = (data_len + 3) & !3;
                         let mut v = Vec::with_capacity(
-                            std::mem::size_of::<$crate::TlvHeader>() + padded_data_len);
+                            core::mem::size_of::<$crate::TlvHeader>() + padded_data_len);
                         v.extend($crate::TlvHeader {
                             tag:  self.data.get_tag(),
                             // TODO: replace panics with errors
@@ -388,7 +393,7 @@ macro_rules! tlv_struct {
                         }.as_bytes());
                         v.extend(self.data.as_bytes());
                         v.extend(self.ext.as_slice());
-                        v.resize(std::mem::size_of::<$crate::TlvHeader>() + padded_data_len, 0);
+                        v.resize(core::mem::size_of::<$crate::TlvHeader>() + padded_data_len, 0);
                         v
                     }
                 }
@@ -436,6 +441,7 @@ macro_rules! tlv_struct {
                 pub ext: Vec<Box<dyn $crate::HostTlvObject>>,
             }
 
+            #[cfg(feature="serde")]
             const _:() = {
                 use zerocopy::{FromBytes, IntoBytes};
                 use $crate::TlvObject;
@@ -446,8 +452,8 @@ macro_rules! tlv_struct {
                     // Recursively pack this TLV and all its nested sub-TLVs.
                     fn pack(&self) -> Vec<u8> {
                         let mut v = Vec::with_capacity(
-                            std::mem::size_of::<$crate::TlvHeader>() +
-                            std::mem::size_of_val(&self.data));
+                            core::mem::size_of::<$crate::TlvHeader>() +
+                            core::mem::size_of_val(&self.data));
                         // Start with a temporary header length of 0.
                         v.extend($crate::TlvHeader {
                             tag:  self.data.get_tag(),

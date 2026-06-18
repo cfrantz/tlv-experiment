@@ -9,14 +9,22 @@ name = "imgdsc"
 path = "tests/imgdsc.rs"
 required-features = ["serde"]
 
+[[test]]
+name = "test_serde"
+path = "tests/test_serde.rs"
+required-features = ["serde"]
+
 [dependencies]
 paste = "1.0.15"
 serde = { version = "1.0.228", features = ["derive"], optional = true }
-serde_json = "1.0.150"
-serde_json5 = "0.2.1"
-typetag = "0.2.22"
+typetag = { version = "0.2.22", optional = true }
 zerocopy = { version = "0.8.52", features = ["derive"] }
 
+[dev-dependencies]
+serde_json = "1.0.150"
+serde_json5 = "0.2.1"
+
 [features]
-serde = ["dep:serde"]
-default = ["serde"]
+default = ["std", "serde"]
+std = []
+serde = ["dep:serde", "dep:typetag", "std"]
