@@ -483,3 +483,55 @@ macro_rules! tlv_struct {
 pub mod __private {
     pub use paste::paste;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    tlv_struct! { Parent, *b"PRNT", TlvData,
+        #[derive(Debug, PartialEq, Eq)]
+        pub struct Parent {
+            pub id: u32,
+        }
+    }
+
+    tlv_struct! { Child, *b"CHLD", [u8],
+        #[derive(Debug, PartialEq, Eq)]
+        pub struct Child {
+            pub value: u32,
+        }
+    }
+
+    #[test]
+    fn test_build_and_parse_simple() {
+        let mut buf = [0u32; 32];
+
+        // Build Parent and Child
+        let (parent, mut builder) = TlvBuilder::new::<Parent>(&mut buf).unwrap();
+        parent.id = 100;
+
+        let child = builder.add::<Child>().unwrap();
+        child.value = 200;
+
+        let result_bytes = builder.finish().into_bytes(&buf).unwrap();
+        assert_eq!(result_bytes.len(), 24);
+
+        // Parse back
+        let data = TlvData::overlay(result_bytes);
+
+        let mut parent_iter = data.iter::<Parent>();
+        let parent_item = parent_iter.next().unwrap();
+        assert!(parent_iter.next().is_none());
+
+        assert_eq!(parent_item.header.tag, Parent::TAG);
+        assert_eq!(parent_item.data.id, 100);
+
+        // Parse Child from Parent's extension
+        let mut child_iter = parent_item.ext().iter::<Child>();
+        let child_item = child_iter.next().expect("Should find Child");
+        assert!(child_iter.next().is_none());
+
+        assert_eq!(child_item.header.tag, Child::TAG);
+        assert_eq!(child_item.data.value, 200);
+    }
+}

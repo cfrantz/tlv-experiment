@@ -9,6 +9,10 @@ cd "$(dirname "$0")"
 
 echo "Running CI validation..."
 
+# 0. Check formatting
+echo "Checking formatting..."
+cargo fmt --check
+
 # 1. Validation in no_std mode (without std feature)
 echo "Checking in no_std mode (without std feature)..."
 cargo check --no-default-features

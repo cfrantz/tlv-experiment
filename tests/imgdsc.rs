@@ -198,7 +198,9 @@ fn test_imgdsc() {
             }
         }
     }
-    assert_eq!(out, r#"tag=IMGD len=636
+    assert_eq!(
+        out,
+        r#"tag=IMGD len=636
     tag=VERS len=36
     PayloadVersion { security_version: 0, image_vendor: StringBuf("Google"), image_family: StringBuf("Indus"), image_domain: 4660, image_timestamp: Timestamp { lo: 0, hi: 0 } } ext=[1, 0, 0, 0]
 
@@ -232,6 +234,7 @@ fn test_imgdsc() {
     tag=PKEY len=80
     PublicKey { algorithm: 4278124286, key_domain: 1 }
 
-"#);
+"#
+    );
     println!("{out}");
 }
