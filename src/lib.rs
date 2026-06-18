@@ -50,7 +50,7 @@
 //! }
 //! ```
 
-use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, transmute_ref};
 
 mod hexdump;
 pub use hexdump::hexdump;
@@ -65,7 +65,25 @@ pub struct TlvHeader {
     /// The tag identifying the type of the TLV object. Typically represented as a 4-character ASCII string (FourCC).
     pub tag: u32,
     /// The length of the data following this header, in bytes.
-    pub length: u32,
+    pub length: u16,
+    pub reserved: u16,
+}
+
+impl TlvHeader {
+    const HEADER_WORD_COUNT: usize = {
+        assert!(core::mem::size_of::<TlvHeader>().is_multiple_of(4));
+        core::mem::size_of::<TlvHeader>() / 4
+    };
+
+    // The length of the data + padding following this header, in 32-bit words
+    fn word_len(&self) -> usize {
+        usize::from(self.length).div_ceil(4)
+    }
+
+    fn ref_from_words_prefix(words: &[u32]) -> Option<(&TlvHeader, &[u32])> {
+        let (header_words, rest) = words.split_first_chunk::<{ Self::HEADER_WORD_COUNT }>()?;
+        Some((transmute_ref!(header_words), rest))
+    }
 }
 
 /// Generic TLV container.
@@ -113,7 +131,7 @@ impl TlvData {
     /// Otherwise, it will only yield TLVs with a matching [`TlvObject::TAG`].
     pub fn iter<'a, T: TlvObject>(&'a self) -> TlvIterator<'a, T> {
         TlvIterator {
-            data: self.data.as_bytes(),
+            data: &self.data,
             target: std::marker::PhantomData,
         }
     }
@@ -121,7 +139,7 @@ impl TlvData {
 
 /// Iterator over TLV objects in a [`TlvData`] container.
 pub struct TlvIterator<'a, T> {
-    data: &'a [u8],
+    data: &'a [u32],
     target: std::marker::PhantomData<T>,
 }
 
@@ -140,9 +158,11 @@ impl<'a, T: TlvObject + 'a> Iterator for TlvIterator<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while !self.data.is_empty() {
-            let (header, rest) = TlvHeader::ref_from_prefix(self.data).ok()?;
-            let raw = &self.data[..header.length as usize + core::mem::size_of::<TlvHeader>()];
-            let (content, remain) = rest.split_at(header.length as usize);
+            let (header, rest) = TlvHeader::ref_from_words_prefix(self.data)?;
+            let remain = rest.get(header.word_len()..)?;
+            let content = rest.as_bytes().get(..usize::from(header.length))?;
+            let raw = &self.data.as_bytes()
+                [..usize::from(header.length) + core::mem::size_of::<TlvHeader>()];
             let (data, _extra) = T::ref_from_prefix(content).ok()?;
             self.data = remain;
             if header.tag == T::TAG || T::TAG == 0 {
@@ -350,16 +370,18 @@ macro_rules! tlv_struct {
                         let data_len =
                             std::mem::size_of_val(&self.data) +
                             self.ext.len();
+                        let padded_data_len = (data_len + 3) & !3;
                         let mut v = Vec::with_capacity(
-                            std::mem::size_of::<$crate::TlvHeader>() + data_len);
-                        v.extend(
-                            $crate::TlvHeader {
-                                tag:  self.data.get_tag(),
-                                length: data_len as u32,
-                            }.as_bytes()
-                        );
+                            std::mem::size_of::<$crate::TlvHeader>() + padded_data_len);
+                        v.extend($crate::TlvHeader {
+                            tag:  self.data.get_tag(),
+                            // TODO: replace panics with errors
+                            length: u16::try_from(data_len).unwrap(),
+                            reserved: 0,
+                        }.as_bytes());
                         v.extend(self.data.as_bytes());
                         v.extend(self.ext.as_slice());
+                        v.resize(std::mem::size_of::<$crate::TlvHeader>() + padded_data_len, 0);
                         v
                     }
                 }
@@ -423,6 +445,7 @@ macro_rules! tlv_struct {
                         v.extend($crate::TlvHeader {
                             tag:  self.data.get_tag(),
                             length: 0,
+                            reserved: 0,
                         }.as_bytes());
                         v.extend(self.data.as_bytes());
                         // Recursively pack and append each nested sub-TLV.
@@ -433,7 +456,8 @@ macro_rules! tlv_struct {
                         // Backpatch the final packed length into the header.
                         {
                             let header = $crate::TlvHeader::mut_from_bytes(&mut v[..8]).unwrap();
-                            header.length = (total_len - std::mem::size_of::<$crate::TlvHeader>()) as u32;
+                            // TODO: replace panics with errors
+                            header.length = u16::try_from((total_len - std::mem::size_of::<$crate::TlvHeader>())).unwrap();
                         }
                         v
                     }
