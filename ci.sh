@@ -14,13 +14,20 @@ echo "Checking formatting..."
 cargo fmt --check
 
 # 1. Validation in no_std mode (without std feature)
-echo "Checking in no_std mode (without std feature)..."
+echo "Checking library in no_std mode (without std feature)..."
 cargo check --no-default-features
 cargo clippy --no-default-features --all-targets -- -D warnings
 cargo test --no-default-features
 
+echo "Checking independent no_std validation binary (rv32imc)..."
+(
+    cd test_fw
+    cargo check
+    cargo clippy -- -D warnings
+)
+
 # 2. Validation in std mode (with std/serde features)
-echo "Checking in std mode (with std and serde features)..."
+echo "Checking library in std mode (with std and serde features)..."
 cargo check --all-targets --all-features
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-features
