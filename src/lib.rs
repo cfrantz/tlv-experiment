@@ -52,8 +52,12 @@
 
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, transmute_ref};
 
+mod builder;
 mod hexdump;
 pub use hexdump::hexdump;
+
+pub use builder::TlvBuilder;
+pub use builder::TlvBuilderFinisher;
 
 /// Generic TLV header.
 ///
@@ -172,6 +176,9 @@ impl<'a, T: TlvObject + 'a> Iterator for TlvIterator<'a, T> {
         None
     }
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct TlvError;
 
 /// A trait for types that represent a TLV object.
 ///
@@ -457,7 +464,7 @@ macro_rules! tlv_struct {
                         {
                             let header = $crate::TlvHeader::mut_from_bytes(&mut v[..8]).unwrap();
                             // TODO: replace panics with errors
-                            header.length = u16::try_from((total_len - std::mem::size_of::<$crate::TlvHeader>())).unwrap();
+                            header.length = u16::try_from(total_len - core::mem::size_of::<$crate::TlvHeader>()).unwrap();
                         }
                         v
                     }

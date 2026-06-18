@@ -149,3 +149,146 @@ fn test_serde_and_parsing() {
     assert_eq!(zz_roundtrip.ext.len(), zz.ext.len());
     assert_eq!(zz_roundtrip.pack(), buf);
 }
+
+#[test]
+fn test_builder_closure() {
+    use tlv::TlvBuilder;
+
+    let mut buf = [0u32; 100];
+    let (bar, mut tlv) = TlvBuilder::new::<Bar>(&mut buf).unwrap();
+    *bar = Bar { n: 5 };
+    tlv.add_in::<Baz, _>(|baz, tlv| {
+        *baz = Baz { n: 60 };
+        *tlv.add::<Foo>()? = Foo {
+            x: 20,
+            y: [1, 2, 3, 4],
+        };
+        Ok(())
+    })
+    .unwrap();
+    *tlv.add::<Foo>().unwrap() = Foo {
+        x: 30,
+        y: [10, 20, 30, 40],
+    };
+    let result_bytes = tlv.finish().into_bytes(&buf).unwrap();
+
+    // Build the same tree using serde and compare it
+    let expected_bytes_serde = serde_json::from_str::<HostBar>(
+        r#"{
+        "n": 5,
+        "ext": [
+            {
+                "Baz": {
+                    "n": 60,
+                    "ext": [
+                        {
+                            "Foo": {
+                                "x": 20,
+                                "y": [1, 2, 3, 4]
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "Foo": {
+                    "x": 30,
+                    "y": [10, 20, 30, 40]
+                }
+            }
+        ]
+    }"#,
+    )
+    .unwrap()
+    .pack();
+    assert_eq!(expected_bytes_serde, result_bytes);
+
+    let expected_bytes_explicit = &[
+        // Bar Header and data (tag: "Bar_", len: 48, n: 5)
+        b'B', b'a', b'r', b'_', 0x30, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00,
+        // Baz Header and data (tag: "Baz_", len: 20, n: 60)
+        b'B', b'a', b'z', b'_', 0x14, 0x00, 0x00, 0x00, 0x3c, 0x00, 0x00, 0x00,
+        // Foo Header and data inside baz (tag: "FOO_", len: 8, x: 20, y: [1, 2, 3, 4])
+        b'F', b'O', b'O', b'_', 0x08, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03,
+        0x04,
+        // Foo Header and data inside bar(tag: "FOO_", len: 8, x: 30, y: [10, 20, 30, 40])
+        b'F', b'O', b'O', b'_', 0x08, 0x00, 0x00, 0x00, 0x1e, 0x00, 0x00, 0x00, 0x0a, 0x14, 0x1e,
+        0x28,
+    ];
+    assert_eq!(result_bytes, expected_bytes_explicit);
+
+    // Overlay TlvData and parse the built container to verify round-trip correctness
+    use tlv::{TlvAny, TlvData, TlvQuery};
+    let t = TlvData::overlay(result_bytes);
+
+    let mut bar_iter = t.iter::<Bar>();
+    let bar_item = bar_iter.next().expect("Should have one Bar item");
+    assert!(bar_iter.next().is_none());
+
+    assert_eq!(bar_item.header.tag, Bar::TAG);
+    assert_eq!(bar_item.header.length, 48);
+    assert_eq!(bar_item.data.n, 5);
+
+    // Iterate over Bar's extensions
+    let mut ext_iter = bar_item.ext().iter::<TlvAny>();
+
+    // First extension: Baz
+    let ext_baz = ext_iter.next().expect("Should have Baz extension");
+    assert_eq!(ext_baz.header.tag, Baz::TAG);
+    assert_eq!(ext_baz.header.length, 20);
+    let baz_item = ext_baz.cast::<Baz>().expect("Should cast to Baz");
+    assert_eq!(baz_item.data.n, 60);
+
+    {
+        // Baz's child: Foo (nested inside Baz)
+        let mut baz_ext_iter = baz_item.ext().iter::<TlvAny>();
+        let ext_foo_in_baz = baz_ext_iter.next().expect("Should have Foo inside Baz");
+        assert_eq!(ext_foo_in_baz.header.tag, Foo::TAG);
+        assert_eq!(ext_foo_in_baz.header.length, 8);
+        let foo_in_baz = ext_foo_in_baz
+            .cast::<Foo>()
+            .expect("Should cast to Foo inside Baz");
+        assert_eq!(foo_in_baz.data.x, 20);
+        assert_eq!(foo_in_baz.data.y, [1, 2, 3, 4]);
+        assert!(baz_ext_iter.next().is_none());
+    }
+
+    // Second extension: Foo (flat child of Bar)
+    let ext_foo_in_bar = ext_iter.next().expect("Should have Foo inside Bar");
+    assert_eq!(ext_foo_in_bar.header.tag, Foo::TAG);
+    assert_eq!(ext_foo_in_bar.header.length, 8);
+    let foo_in_bar = ext_foo_in_bar
+        .cast::<Foo>()
+        .expect("Should cast to Foo inside Bar");
+    assert_eq!(foo_in_bar.data.x, 30);
+    assert_eq!(foo_in_bar.data.y, [10, 20, 30, 40]);
+    assert!(ext_iter.next().is_none());
+}
+
+#[test]
+fn test_builder_overflow() {
+    use tlv::{TlvBuilder, TlvError};
+
+    // Buffer big enough to hold the large TLVs.
+    // 20000 u32 words = 80000 bytes.
+    let mut buf = [0u32; 20000];
+    let (bar, mut tlv) = TlvBuilder::new::<Bar>(&mut buf).unwrap();
+    *bar = Bar { n: 5 };
+
+    // We add 4095 Foo objects (16 bytes each = 65520 bytes) and 1 Baz object
+    // (12 bytes total = 8 header + 4 data).
+    // This results in a child Baz payload of exactly 65532 bytes, which fits in u16.
+    // But the child total length (payload + 8 bytes header) is 65540 bytes,
+    // which overflows u16.
+    let res = tlv.add_in::<Baz, _>(|baz, child_tlv| {
+        *baz = Baz { n: 42 };
+        for _ in 0..4095 {
+            child_tlv.add::<Foo>()?;
+        }
+        child_tlv.add::<Baz>()?;
+        Ok(())
+    });
+
+    // The finish_with_parent call must catch the u16 overflow and return Err(TlvError).
+    assert_eq!(res.unwrap_err(), TlvError);
+}
