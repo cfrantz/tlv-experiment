@@ -3,9 +3,6 @@ name = "tlv"
 version = "0.1.0"
 edition = "2024"
 
-[[bin]]
-name = "test_serde"
-path = "src/test_serde.rs"
 
 [[bin]]
 name = "imgdsc"
