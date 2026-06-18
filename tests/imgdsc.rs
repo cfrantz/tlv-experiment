@@ -158,7 +158,8 @@ fn fourcc(tag: u32) -> String {
     s
 }
 
-fn main() {
+#[test]
+fn test_imgdsc() {
     let zz: HostImageDescriptor = serde_json5::from_str(TEST).expect("deserialize");
     let buf = zz.pack();
     tlv::hexdump(buf.as_slice());

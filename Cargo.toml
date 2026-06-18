@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 
-[[bin]]
+[[test]]
 name = "imgdsc"
-path = "src/imgdsc.rs"
+path = "tests/imgdsc.rs"
+required-features = ["serde"]
 
 [dependencies]
 paste = "1.0.15"
