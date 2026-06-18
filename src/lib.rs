@@ -42,9 +42,8 @@
 //! ```rust
 //! # use tlv::{TlvData, TlvAny};
 //! # use zerocopy::IntoBytes;
-//! let buf: &[u32] = &[]; // Use u32 slice to guarantee 4-byte alignment
-//! let byte_buf = buf.as_bytes();
-//! let tlv_data = TlvData::overlay(byte_buf);
+//! let buf: &[u32] = &[]; // Use u32 slice
+//! let tlv_data = TlvData::overlay(buf);
 //! for item in tlv_data.iter::<TlvAny>() {
 //!     println!("Tag: {}, Length: {}", item.header.tag, item.header.length);
 //! }
@@ -123,17 +122,20 @@ impl TlvObject for TlvAny {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct BadAlignmentError;
+
 impl TlvData {
+    /// Constructs a new `TlvData` reference by overlaying onto a word buffer.
+    #[inline]
+    pub fn overlay(data: &[u32]) -> &Self {
+        transmute_ref!(data)
+    }
+
     /// Constructs a new `TlvData` reference by overlaying onto a byte buffer.
-    ///
-    /// The buffer must be aligned to 4 bytes and its length must be a multiple of 4.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the buffer length is not a multiple of 4, or if the buffer is not properly aligned.
-    pub fn overlay(data: &[u8]) -> &Self {
-        let count = data.len() / 4;
-        TlvData::ref_from_bytes_with_elems(data, count).unwrap()
+    #[inline]
+    pub fn overlay_bytes(data: &[u8]) -> Result<&Self, BadAlignmentError> {
+        TlvData::ref_from_bytes_with_elems(data, data.len() / 4).map_err(|_| BadAlignmentError)
     }
 
     /// Returns an iterator over the contained TLV objects of type `T`.
@@ -423,7 +425,7 @@ macro_rules! tlv_struct {
             const TAG: u32 = u32::from_le_bytes($tag);
             // Overlays a TlvData view onto the remaining bytes to parse them as nested TLVs.
             fn make_ext(ext: &[u8]) -> &Self::Extension {
-                $crate::TlvData::overlay(ext)
+                $crate::TlvData::overlay_bytes(ext).unwrap()
             }
         }
 
@@ -520,7 +522,7 @@ mod tests {
         assert_eq!(result_bytes.len(), 24);
 
         // Parse back
-        let data = TlvData::overlay(result_bytes);
+        let data = TlvData::overlay_bytes(result_bytes).unwrap();
 
         let mut parent_iter = data.iter::<Parent>();
         let parent_item = parent_iter.next().unwrap();

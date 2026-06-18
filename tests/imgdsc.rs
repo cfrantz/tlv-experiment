@@ -167,7 +167,7 @@ fn test_imgdsc() {
     let buf = zz.pack();
     tlv::hexdump(buf.as_slice());
 
-    let t = TlvData::overlay(buf.as_slice());
+    let t = TlvData::overlay_bytes(buf.as_slice()).unwrap();
     for item in t.iter::<ImageDescriptor>() {
         writeln!(
             &mut out,

@@ -68,7 +68,7 @@ fn test_serde_and_parsing() {
     assert_eq!(buf, expected_buf);
 
     // Overlay TlvData and parse the outer container
-    let t = TlvData::overlay(buf.as_slice());
+    let t = TlvData::overlay_bytes(buf.as_slice()).unwrap();
 
     let mut bar_iter = t.iter::<Bar>();
     let bar_item = bar_iter.next().expect("Should have one Bar item");
@@ -219,7 +219,7 @@ fn test_builder_closure() {
 
     // Overlay TlvData and parse the built container to verify round-trip correctness
     use tlv::{TlvAny, TlvData, TlvQuery};
-    let t = TlvData::overlay(result_bytes);
+    let t = TlvData::overlay_bytes(result_bytes).unwrap();
 
     let mut bar_iter = t.iter::<Bar>();
     let bar_item = bar_iter.next().expect("Should have one Bar item");
