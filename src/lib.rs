@@ -89,7 +89,7 @@ pub struct TlvAny;
 impl TlvObject for TlvAny {
     type Extension = [u8];
     const TAG: u32 = 0;
-    fn make_ext<'a>(ext: &'a [u8]) -> &'a Self::Extension {
+    fn make_ext(ext: &[u8]) -> &Self::Extension {
         ext
     }
 }
@@ -102,7 +102,7 @@ impl TlvData {
     /// # Panics
     ///
     /// Panics if the buffer length is not a multiple of 4, or if the buffer is not properly aligned.
-    pub fn overlay<'a>(data: &'a [u8]) -> &'a Self {
+    pub fn overlay(data: &[u8]) -> &Self {
         let count = data.len() / 4;
         TlvData::ref_from_bytes_with_elems(data, count).unwrap()
     }
@@ -171,7 +171,7 @@ pub trait TlvObject: FromBytes + IntoBytes + Immutable + KnownLayout + Sized {
     }
 
     /// Helper for making the extension object from raw bytes.
-    fn make_ext<'a>(ext: &'a [u8]) -> &'a Self::Extension;
+    fn make_ext(ext: &[u8]) -> &Self::Extension;
 }
 
 /// Extension trait providing helper methods on [`TlvItem`].
@@ -314,7 +314,7 @@ macro_rules! tlv_struct {
             // Convert the tag from little-endian bytes to a u32 constant.
             const TAG: u32 = u32::from_le_bytes($tag);
             // Returns the raw byte slice as the extension type.
-            fn make_ext<'a>(ext: &'a [u8]) -> &'a Self::Extension {
+            fn make_ext(ext: &[u8]) -> &Self::Extension {
                 ext
             }
 
@@ -385,7 +385,7 @@ macro_rules! tlv_struct {
             // Convert the tag from little-endian bytes to a u32 constant.
             const TAG: u32 = u32::from_le_bytes($tag);
             // Overlays a TlvData view onto the remaining bytes to parse them as nested TLVs.
-            fn make_ext<'a>(ext: &'a [u8]) -> &'a Self::Extension {
+            fn make_ext(ext: &[u8]) -> &Self::Extension {
                 $crate::TlvData::overlay(ext)
             }
         }

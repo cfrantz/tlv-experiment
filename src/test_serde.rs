@@ -1,7 +1,6 @@
 use tlv::HostTlvObject;
 use tlv::tlv_struct;
 use tlv::{TlvAny, TlvData, TlvQuery};
-use zerocopy;
 
 tlv_struct! { Foo, *b"FOO_", [u8],
     #[derive(Debug)]
@@ -25,7 +24,7 @@ tlv_struct! { Baz, *b"Baz_", TlvData,
     }
 }
 
-const TEST: &'static str = r#"
+const TEST: &str = r#"
 {
   "n": 5,
   "ext": [
@@ -68,11 +67,11 @@ fn main() {
                 ext.header.length,
                 ext.raw
             );
-            if let Some(foo) = ext.cast::<Foo>() {
-                println!("    {:?} ext={:x?}\n", foo.data, foo.ext());
+            if let Some(foo_obj) = ext.cast::<Foo>() {
+                println!("    {:?} ext={:x?}\n", foo_obj.data, foo_obj.ext());
             }
-            if let Some(baz) = ext.cast::<Baz>() {
-                println!("    {:?}\n", baz.data);
+            if let Some(baz_obj) = ext.cast::<Baz>() {
+                println!("    {:?}\n", baz_obj.data);
             }
         }
     }

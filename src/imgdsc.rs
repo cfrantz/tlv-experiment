@@ -2,7 +2,6 @@ use std::fmt;
 use tlv::HostTlvObject;
 use tlv::tlv_struct;
 use tlv::{TlvAny, TlvData, TlvQuery};
-use zerocopy;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
@@ -110,7 +109,7 @@ tlv_struct! { P256PublicKey, *b"p256", [u8],
     }
 }
 
-const TEST: &'static str = r#"
+const TEST: &str = r#"
 {
     descriptor_offset: 0,
     signed_len: 0,
