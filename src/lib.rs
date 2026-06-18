@@ -52,8 +52,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use aligned::A4;
+use aligned::Aligned;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, transmute_ref};
 
+pub mod aligned_bytes;
 mod builder;
 #[cfg(feature = "std")]
 mod hexdump;
@@ -158,7 +161,7 @@ pub struct TlvItem<'a, T: TlvObject> {
     /// The TLV object itself (parsed struct).
     pub data: &'a T,
     /// The underlying slice of the TLV: header, data and any extension data.
-    pub raw: &'a [u8],
+    pub raw: &'a Aligned<A4, [u8]>,
 }
 
 impl<'a, T: TlvObject + 'a> Iterator for TlvIterator<'a, T> {
@@ -169,7 +172,7 @@ impl<'a, T: TlvObject + 'a> Iterator for TlvIterator<'a, T> {
             let (header, rest) = TlvHeader::ref_from_words_prefix(self.data)?;
             let remain = rest.get(header.word_len()..)?;
             let content = rest.as_bytes().get(..usize::from(header.length))?;
-            let raw = &self.data.as_bytes()
+            let raw = &aligned_bytes::from_u32_slice(self.data)
                 [..usize::from(header.length) + core::mem::size_of::<TlvHeader>()];
             let (data, _extra) = T::ref_from_prefix(content).ok()?;
             self.data = remain;
