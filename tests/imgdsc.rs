@@ -160,37 +160,78 @@ fn fourcc(tag: u32) -> String {
 
 #[test]
 fn test_imgdsc() {
+    use std::fmt::Write;
+    let mut out = String::new();
+
     let zz: HostImageDescriptor = serde_json5::from_str(TEST).expect("deserialize");
     let buf = zz.pack();
     tlv::hexdump(buf.as_slice());
 
     let t = TlvData::overlay(buf.as_slice());
     for item in t.iter::<ImageDescriptor>() {
-        println!(
-            "tag={} len={} data={:02x?}",
+        writeln!(
+            &mut out,
+            "tag={} len={}",
             fourcc(item.header.tag),
             item.header.length,
-            item.raw
-        );
+        )
+        .unwrap();
         for ext in item.ext().iter::<TlvAny>() {
-            println!(
-                "    tag={} len={} data={:02x?}",
+            writeln!(
+                &mut out,
+                "    tag={} len={}",
                 fourcc(ext.header.tag),
                 ext.header.length,
-                ext.raw
-            );
+            )
+            .unwrap();
             if let Some(x) = ext.cast::<PayloadVersion>() {
-                println!("    {:?} ext={:x?}\n", x.data, x.ext());
+                writeln!(&mut out, "    {:?} ext={:x?}\n", x.data, x.ext()).unwrap();
             }
             if let Some(x) = ext.cast::<Measurement>() {
-                println!("    {:?} ext={:x?}\n", x.data, x.ext());
+                writeln!(&mut out, "    {:?} ext={:x?}\n", x.data, x.ext()).unwrap();
             }
             if let Some(x) = ext.cast::<Region>() {
-                println!("    {:?}\n", x.data);
+                writeln!(&mut out, "    {:?}\n", x.data).unwrap();
             }
             if let Some(x) = ext.cast::<PublicKey>() {
-                println!("    {:?}\n", x.data);
+                writeln!(&mut out, "    {:?}\n", x.data).unwrap();
             }
         }
     }
+    assert_eq!(out, r#"tag=IMGD len=636
+    tag=VERS len=36
+    PayloadVersion { security_version: 0, image_vendor: StringBuf("Google"), image_family: StringBuf("Indus"), image_domain: 4660, image_timestamp: Timestamp { lo: 0, hi: 0 } } ext=[1, 0, 0, 0]
+
+    tag=REGN len=48
+    Region { name: StringBuf("bootcode"), offset: 0, size: 4096, measurement_group: 0, version: 0, flags: 0 }
+
+    tag=REGN len=48
+    Region { name: StringBuf("runtime"), offset: 4096, size: 61440, measurement_group: 0, version: 0, flags: 0 }
+
+    tag=REGN len=48
+    Region { name: StringBuf("not_writeable"), offset: 65536, size: 65536, measurement_group: 0, version: 0, flags: 0 }
+
+    tag=REGN len=48
+    Region { name: StringBuf("descriptor"), offset: 131072, size: 131072, measurement_group: 0, version: 0, flags: 0 }
+
+    tag=REGN len=48
+    Region { name: StringBuf("readable"), offset: 262144, size: 65536, measurement_group: 0, version: 0, flags: 0 }
+
+    tag=REGN len=48
+    Region { name: StringBuf("not_readable"), offset: 327680, size: 65536, measurement_group: 0, version: 0, flags: 0 }
+
+    tag=REGN len=48
+    Region { name: StringBuf("writeable"), offset: 393216, size: 131072, measurement_group: 0, version: 0, flags: 0 }
+
+    tag=REGN len=48
+    Region { name: StringBuf("unused"), offset: 524288, size: 33030144, measurement_group: 0, version: 0, flags: 0 }
+
+    tag=HASH len=40
+    Measurement { algorithm: 1, measurement_group: 0 } ext=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+    tag=PKEY len=80
+    PublicKey { algorithm: 4278124286, key_domain: 1 }
+
+"#);
+    println!("{out}");
 }
