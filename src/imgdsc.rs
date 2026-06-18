@@ -1,6 +1,6 @@
 use std::fmt;
-use tlv::tlv_struct;
 use tlv::HostTlvObject;
+use tlv::tlv_struct;
 use tlv::{TlvAny, TlvData, TlvQuery};
 use zerocopy;
 
