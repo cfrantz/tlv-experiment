@@ -173,7 +173,7 @@ fn test_imgdsc() {
             &mut out,
             "tag={} len={}",
             fourcc(item.header.tag),
-            item.header.length,
+            item.header.word_len,
         )
         .unwrap();
         for ext in item.ext().iter::<TlvAny>() {
@@ -181,7 +181,7 @@ fn test_imgdsc() {
                 &mut out,
                 "    tag={} len={}",
                 fourcc(ext.header.tag),
-                ext.header.length,
+                ext.header.word_len,
             )
             .unwrap();
             if let Some(x) = ext.cast::<PayloadVersion>() {
@@ -200,38 +200,38 @@ fn test_imgdsc() {
     }
     assert_eq!(
         out,
-        r#"tag=IMGD len=636
-    tag=VERS len=36
+        r#"tag=IMGD len=159
+    tag=VERS len=9
     PayloadVersion { security_version: 0, image_vendor: StringBuf("Google"), image_family: StringBuf("Indus"), image_domain: 4660, image_timestamp: Timestamp { lo: 0, hi: 0 } } ext=[1, 0, 0, 0]
 
-    tag=REGN len=48
+    tag=REGN len=12
     Region { name: StringBuf("bootcode"), offset: 0, size: 4096, measurement_group: 0, version: 0, flags: 0 }
 
-    tag=REGN len=48
+    tag=REGN len=12
     Region { name: StringBuf("runtime"), offset: 4096, size: 61440, measurement_group: 0, version: 0, flags: 0 }
 
-    tag=REGN len=48
+    tag=REGN len=12
     Region { name: StringBuf("not_writeable"), offset: 65536, size: 65536, measurement_group: 0, version: 0, flags: 0 }
 
-    tag=REGN len=48
+    tag=REGN len=12
     Region { name: StringBuf("descriptor"), offset: 131072, size: 131072, measurement_group: 0, version: 0, flags: 0 }
 
-    tag=REGN len=48
+    tag=REGN len=12
     Region { name: StringBuf("readable"), offset: 262144, size: 65536, measurement_group: 0, version: 0, flags: 0 }
 
-    tag=REGN len=48
+    tag=REGN len=12
     Region { name: StringBuf("not_readable"), offset: 327680, size: 65536, measurement_group: 0, version: 0, flags: 0 }
 
-    tag=REGN len=48
+    tag=REGN len=12
     Region { name: StringBuf("writeable"), offset: 393216, size: 131072, measurement_group: 0, version: 0, flags: 0 }
 
-    tag=REGN len=48
+    tag=REGN len=12
     Region { name: StringBuf("unused"), offset: 524288, size: 33030144, measurement_group: 0, version: 0, flags: 0 }
 
-    tag=HASH len=40
+    tag=HASH len=10
     Measurement { algorithm: 1, measurement_group: 0 } ext=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
-    tag=PKEY len=80
+    tag=PKEY len=20
     PublicKey { algorithm: 4278124286, key_domain: 1 }
 
 "#

@@ -18,16 +18,16 @@ impl<'a> TlvBuilder<'a> {
     /// Panics if the buffer length is not a multiple of 4, or if the buffer is not properly aligned.
     pub fn new<TRoot: TlvObject>(data: &'a mut [u32]) -> Result<(&'a mut TRoot, Self), TlvError> {
         let (header_words, remaining) = data
-            .split_first_chunk_mut::<{ TlvHeader::HEADER_WORD_COUNT }>()
+            .split_first_chunk_mut::<{ crate::word_size_of::<TlvHeader>() }>()
             .ok_or(TlvError)?;
         let header: &mut TlvHeader = transmute_mut!(header_words);
         *header = TlvHeader {
             tag: TRoot::TAG,
-            length: u16::try_from(core::mem::size_of::<TRoot>()).map_err(|_| TlvError)?,
-            reserved: 0,
+            word_len: u16::try_from(crate::word_size_of::<TRoot>()).map_err(|_| TlvError)?,
+            flags: 0,
         };
         let (data_words, remaining) = remaining
-            .split_at_mut_checked(core::mem::size_of::<TRoot>().div_ceil(4))
+            .split_at_mut_checked(crate::word_size_of::<TRoot>())
             .ok_or(TlvError)?;
         let data = TRoot::mut_from_prefix(data_words.as_mut_bytes()).unwrap().0;
         Ok((data, Self { header, remaining }))
@@ -41,25 +41,25 @@ impl<'a> TlvBuilder<'a> {
     pub fn add<T: TlvObject>(&mut self) -> Result<&mut T, TlvError> {
         let remaining = core::mem::take(&mut self.remaining);
         let (header_words, remaining) = remaining
-            .split_first_chunk_mut::<{ TlvHeader::HEADER_WORD_COUNT }>()
+            .split_first_chunk_mut::<{ crate::word_size_of::<TlvHeader>() }>()
             .ok_or(TlvError)?;
         *header_words = transmute!(TlvHeader {
             tag: T::TAG,
-            length: u16::try_from(core::mem::size_of::<T>()).map_err(|_| TlvError)?,
-            reserved: 0,
+            word_len: u16::try_from(crate::word_size_of::<T>()).map_err(|_| TlvError)?,
+            flags: 0,
         });
         let (data_words, remaining) = remaining
-            .split_at_mut_checked(core::mem::size_of::<T>().div_ceil(4))
+            .split_at_mut_checked(crate::word_size_of::<T>())
             .ok_or(TlvError)?;
         self.remaining = remaining;
 
         // Update current header length
-        let added_bytes = u16::try_from(core::mem::size_of::<TlvHeader>() + data_words.len() * 4)
+        let added_words = u16::try_from(crate::word_size_of::<TlvHeader>() + data_words.len())
             .map_err(|_| TlvError)?;
-        self.header.length = self
+        self.header.word_len = self
             .header
-            .length
-            .checked_add(added_bytes)
+            .word_len
+            .checked_add(added_words)
             .ok_or(TlvError)?;
 
         // Panic is impossible since data_words is guaranteed to be bigger than T
@@ -77,13 +77,14 @@ impl<'a> TlvBuilder<'a> {
     pub fn finish_with_parent(self, parent: &mut TlvBuilder<'a>) -> Result<(), TlvError> {
         parent.remaining = self.remaining;
 
-        let child_payload_len = usize::from(self.header.length);
-        let child_total_len = core::mem::size_of::<TlvHeader>() + ((child_payload_len + 3) & !3);
-        let child_total_len_u16 = u16::try_from(child_total_len).map_err(|_| TlvError)?;
-        parent.header.length = parent
+        let child_payload_len = usize::from(self.header.word_len);
+        let child_total_len_words = crate::word_size_of::<TlvHeader>() + child_payload_len;
+        let child_total_len_words_u16 =
+            u16::try_from(child_total_len_words).map_err(|_| TlvError)?;
+        parent.header.word_len = parent
             .header
-            .length
-            .checked_add(child_total_len_u16)
+            .word_len
+            .checked_add(child_total_len_words_u16)
             .ok_or(TlvError)?;
         Ok(())
     }

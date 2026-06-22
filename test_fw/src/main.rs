@@ -27,10 +27,10 @@ tlv_struct! { Bar, *b"BAR_", [u8],
 // TLV 1: FOO_ (length 8, payload: x = 42, y = 100)
 // TLV 2: BAR_ (length 8, payload: a = 200, b = 300)
 static WORDS: &[u32] = &[
-    // FOO_ header: tag, length (8) | reserved (0)
-    0x5f4f4f46, 0x00000008, // FOO_ payload: x = 42, y = 100
-    42, 100, // BAR_ header: tag, length (8) | reserved (0)
-    0x5f524142, 0x00000008, // BAR_ payload: a = 200, b = 300
+    // FOO_ header: tag, length (2 words) | reserved (0)
+    0x5f4f4f46, 0x00000002, // FOO_ payload: x = 42, y = 100
+    42, 100, // BAR_ header: tag, length (2 words) | reserved (0)
+    0x5f524142, 0x00000002, // BAR_ payload: a = 200, b = 300
     200, 300,
 ];
 
