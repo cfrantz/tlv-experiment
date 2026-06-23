@@ -3,22 +3,29 @@ name = "tlv"
 version = "0.1.0"
 edition = "2024"
 
-[[bin]]
-name = "test_serde"
-path = "src/test_serde.rs"
 
-[[bin]]
+[[test]]
 name = "imgdsc"
-path = "src/imgdsc.rs"
+path = "tests/imgdsc.rs"
+required-features = ["serde"]
+
+[[test]]
+name = "test_serde"
+path = "tests/test_serde.rs"
+required-features = ["serde"]
 
 [dependencies]
 paste = "1.0.15"
 serde = { version = "1.0.228", features = ["derive"], optional = true }
+typetag = { version = "0.2.22", optional = true }
+zerocopy = { version = "0.8.52", features = ["derive"] }
+aligned = "0.4.2"
+
+[dev-dependencies]
 serde_json = "1.0.150"
 serde_json5 = "0.2.1"
-typetag = "0.2.22"
-zerocopy = { version = "0.8.52", features = ["derive"] }
 
 [features]
-serde = ["dep:serde"]
-default = ["serde"]
+default = ["std", "serde"]
+std = []
+serde = ["dep:serde", "dep:typetag", "std"]

@@ -1,0 +1,26 @@
+[package]
+name = "test-fw"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+tlv = { path = "../", default-features = false }
+zerocopy = { version = "0.8.52", features = ["derive"] }
+
+[profile.dev]
+panic = "abort"
+opt-level = "s"
+lto = true
+overflow-checks = false
+debug-assertions = false
+
+[profile.release]
+panic = "abort"
+opt-level = "s"
+lto = true
+overflow-checks = false
+debug-assertions = false
+
+[features]
+serde = []
